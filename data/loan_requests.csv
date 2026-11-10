@@ -1,0 +1,11 @@
+borrower,person_age,person_income,person_home_ownership,person_emp_length,loan_intent,loan_grade,loan_amnt,loan_int_rate,loan_percent_income,cb_person_default_on_file,cb_person_cred_hist_length
+Hiroshi Tanaka,29,82450,MORTGAGE,11,MEDICAL,E,7500,14.5,0.08,N,9
+Alejandro Gonzalez,53,43200,RENT,0,VENTURE,B,10000,9.88,0.23,N,30
+Fatima Ahmed,22,67440,MORTGAGE,6,EDUCATION,B,5500,10.25,0.08,N,4
+Liam O'Connor,29,21996,OWN,7,PERSONAL,A,8300,5.42,0.38,N,7
+Sofia Rossi,30,57996,RENT,2,HOMEIMPROVEMENT,C,8400,12.98,0.14,N,7
+Chen Wei,30,25000,RENT,0,DEBTCONSOLIDATION,A,3000,10.25,0.12,N,7
+Amara Patel,36,12000,RENT,0,MEDICAL,B,4000,10.62,0.33,N,11
+Johan Svensson,31,45000,OWN,0,EDUCATION,B,6800,10.62,0.15,N,5
+Elena Petrova,23,54000,RENT,6,DEBTCONSOLIDATION,D,20000,14.84,0.37,Y,3
+Mohammed Al-Farsi,21,18456,RENT,2,MEDICAL,C,3500,13.35,0.19,N,3
