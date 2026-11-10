@@ -1,50 +1,55 @@
 # Loan Default Predictor
 
-Estimate the probability that a loan will default, from borrower and loan features
-(age, income, home ownership, loan intent, grade, amount, interest rate, credit
-history…). Trains on ~24k historical loans, then scores a file of pending requests
-and ranks applicants by risk.
+Estimate the probability that a loan will default, compare several models, and turn
+the best one's predictions into an **approve / review / decline** decision for pending
+applicants. Trained on ~24k historical loans.
+
+**→ See [`analysis.ipynb`](./analysis.ipynb) for the full walkthrough with charts.**
 
 ## Run
 
 ```bash
 pip install -r requirements.txt
-python loan_default.py
+python loan_default.py      # prints the scorecard, writes charts to reports/
 ```
 
-## Pipeline
+## Approach
 
-1. **Load** `data/credit_risk_train.csv` (24,435 past loans; the label is
-   `loan_status`, 1 = defaulted).
-2. **Preprocess** inside a scikit-learn `Pipeline` — one-hot encode the categorical
-   columns, fill missing numerics with the median.
-3. **Train** a balanced `RandomForestClassifier`.
-4. **Evaluate** on a 20% held-out slice: accuracy, ROC AUC, recall and false alarms.
-5. **Score** `data/loan_requests.csv` and rank applicants, flagging each
-   approve / review / decline.
+1. **Feature engineering** — on top of the raw columns, add interpretable ratios a
+   credit analyst would look at: `loan_to_income`, `credit_history_ratio`,
+   `income_per_age`; cap impossible outliers (employment length > 47 years).
+2. **Model comparison** — Logistic Regression vs Random Forest vs Gradient Boosting,
+   ranked by **5-fold cross-validated ROC AUC** inside a leakage-safe `Pipeline`.
+3. **Evaluation** — full scorecard on a held-out 20% (accuracy, precision, recall,
+   F1, ROC AUC).
+4. **Scoring** — rank pending applicants and flag each approve / review / decline.
 
-## Example result
+## Results
 
-```
-Held-out performance:
-  accuracy: 92.8%    ROC AUC: 0.932
-  caught 794 of 1059 real defaults (75% recall), 88 false alarms
+5-fold CV ROC AUC: **Random Forest 0.929**, Gradient Boosting 0.928, Logistic 0.877.
+Held-out test set:
 
-Pending loan requests, riskiest first:
-  Elena Petrova     99.5%  -> DECLINE
-  ...
-  Johan Svensson     2.0%  -> approve
-```
+| model | accuracy | precision | recall | F1 | ROC AUC |
+|---|---|---|---|---|---|
+| Logistic Regression | 82.3% | 56.5% | 78.6% | 65.7% | 0.879 |
+| **Random Forest** | **92.7%** | **89.3%** | **75.3%** | **81.7%** | **0.933** |
+| Gradient Boosting | 92.8% | 94.5% | 71.1% | 81.1% | 0.932 |
 
-## What it demonstrates
+| ROC curves | Feature importance | Confusion matrix |
+|---|---|---|
+| ![ROC](reports/roc_curves.png) | ![Importance](reports/feature_importance.png) | ![Confusion](reports/confusion_matrix.png) |
 
-- A leakage-safe `Pipeline` where encoding/imputation are fit on training data only,
-  so the exact same transforms apply to new applicants.
-- Judging an imbalanced classifier by **ROC AUC and recall**, not just accuracy —
-  with ~22% defaults, catching real defaults is what matters.
-- Turning model probabilities into an actionable decision (approve / review / decline).
+The model leans on loan grade, interest rate and the loan-to-income ratio — the same
+signals a human underwriter watches.
+
+## Why these metrics
+
+With ~22% defaults the classes are imbalanced, so **ROC AUC and recall** matter more
+than raw accuracy: the goal is to catch real defaults (recall) without drowning good
+borrowers in false declines. The Random Forest catches ~75% of real defaults while
+keeping precision high.
 
 ## Data
 
-The `data/` folder holds an anonymized public-style credit-risk dataset used purely
-for demonstration. This is a learning project, not a production credit model.
+`data/` holds a public-style credit-risk dataset used purely for demonstration. This
+is a learning project, not a production credit model.
