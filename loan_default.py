@@ -28,15 +28,17 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "data", "credit_risk_train.csv")
-REQUESTS = os.path.join(HERE, "data", "loan_requests.csv")
+# Canadian-framed data (CAD, province, 300-900 credit score); see data/canadianize.py.
+DATA = os.path.join(HERE, "data", "ca_credit_train.csv")
+REQUESTS = os.path.join(HERE, "data", "ca_loan_requests.csv")
 REPORTS = os.path.join(HERE, "reports")
 TARGET = "loan_status"  # 1 = defaulted, 0 = repaid
 
 RAW_CATEGORICAL = ["person_home_ownership", "loan_intent", "loan_grade",
-                   "cb_person_default_on_file"]
+                   "cb_person_default_on_file", "province"]
 RAW_NUMERIC = ["person_age", "person_income", "person_emp_length", "loan_amnt",
-               "loan_int_rate", "loan_percent_income", "cb_person_cred_hist_length"]
+               "loan_int_rate", "loan_percent_income", "cb_person_cred_hist_length",
+               "credit_score"]
 ENGINEERED = ["loan_to_income", "credit_history_ratio", "income_per_age"]
 NUMERIC = RAW_NUMERIC + ENGINEERED
 

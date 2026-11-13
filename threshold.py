@@ -64,7 +64,7 @@ def plot_cost_curve(y_true, proba, amounts, rates, lgd=DEFAULT_LGD, term=DEFAULT
     plt.axvline(best["threshold"], color="#16a34a", linestyle="--",
                 label=f"optimal t = {best['threshold']:.2f}")
     plt.axvline(0.5, color="#dc2626", linestyle=":", label="naive t = 0.50")
-    plt.xlabel("decision threshold"); plt.ylabel("expected cost (millions)")
+    plt.xlabel("decision threshold"); plt.ylabel("expected cost (CAD millions)")
     plt.title("Cost vs threshold"); plt.legend()
     plt.tight_layout()
     path = path or os.path.join(REPORTS, "cost_threshold.png")
