@@ -107,6 +107,24 @@ stated plainly rather than faked.
 | `app.py` | Streamlit demo |
 | `analysis.ipynb` | Narrative walkthrough with charts |
 
+## Roadmap — grounding in real Canadian data
+
+The model is already aligned to Canadian regulation; the next step is replacing the
+adapted dataset's synthetic pieces with real Canadian signals. Concrete, open sources:
+
+- **Province risk from [CMHC mortgage-delinquency tables](https://www.cmhc-schl.gc.ca/en/professionals/housing-markets-data-and-research/housing-data/data-tables/mortgage-and-debt)**
+  — real delinquency rates by province/CMA to ground the `province` feature instead of
+  sampling it independently.
+- **Debt-service ratios from [Statistics Canada (Table 10-10-0134-01)](https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1010013401)**
+  — add **GDS/TDS** ratios, the core affordability metric Canadian lenders use.
+- **[OSFI B-20](https://www.osfi-bsif.gc.ca/en/guidance/guidance-library/residential-mortgage-underwriting-practices-procedures-guideline-b-20) stress test**
+  — qualify the borrower at a stress rate, as required for Canadian mortgages.
+- **Macro context from the [Bank of Canada](https://www.bankofcanada.ca/rates/)** — policy
+  rate and loan-level mortgage data as time-varying features.
+
+These would turn the province dimension from illustrative into predictive and make the
+affordability features match real Canadian underwriting.
+
 ## Data & disclaimer
 
 No open dataset of **individual Canadian loan defaults** exists (privacy / PIPEDA), so this
