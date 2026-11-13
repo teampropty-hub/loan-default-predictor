@@ -55,7 +55,11 @@ actually uses (`loan_default.py`):
 - **Regional risk** — `province_delinquency`, each province's real relative 90+ day
   delinquency level (Equifax / CMHC), so Ontario and Saskatchewan carry the higher risk they
   do in reality.
-- **Macro** — `rate_spread`, the contract rate over the **Bank of Canada** policy rate.
+- **Macro cycle** — the model pulls the **real Bank of Canada policy-rate history** (live
+  Valet API, `macro.py`) and joins each loan the rate environment of its origination month
+  (`boc_policy_rate`, `boc_rate_change_12m`, `boc_rate_vol`), plus `rate_spread` over the
+  policy rate. Loans originated during steep tightening default far more — the real credit
+  cycle, learned from real data.
 
 ## Quickstart
 
@@ -118,6 +122,13 @@ computes the **Population Stability Index** per feature — `< 0.10` stable, `0.
 moderate, `> 0.25` significant drift that warrants revalidation. The script demonstrates it
 catching a simulated rate/income shock (interest-rate PSI jumps past 2.0 → **DRIFT**).
 
+## BI dashboard
+
+Portfolio-level views for business users: a live **Portfolio** tab in the Streamlit app
+(decision mix, default rate by province, risk distribution, the real BoC rate trend) and
+matching CSV exports for **Power BI / Tableau** via `python export.py` (into `dashboard/`,
+with a [build guide](dashboard/POWERBI.md)).
+
 ## Repo map
 
 | File | Purpose |
@@ -131,7 +142,10 @@ catching a simulated rate/income shock (interest-rate PSI jumps past 2.0 → **D
 | `fairness.py` | Fairlearn fairness audit (age + province) |
 | `monitoring.py` | Data-drift detection (Population Stability Index) |
 | `tune.py` | Hyperparameter search (RandomizedSearchCV) |
-| `app.py` | Streamlit demo |
+| `macro.py` | Real Bank of Canada policy-rate data + macro features |
+| `export.py` | Portfolio CSV exports for Power BI / Tableau |
+| `app.py` | Streamlit demo (incl. live Portfolio dashboard) |
+| `dashboard/` | BI exports + `POWERBI.md` build guide |
 | `analysis.ipynb` | Narrative walkthrough with charts |
 
 ## Grounding in real Canadian data

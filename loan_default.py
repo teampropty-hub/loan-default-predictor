@@ -42,7 +42,15 @@ RAW_NUMERIC = ["person_age", "person_income", "person_emp_length", "loan_amnt",
 ENGINEERED = ["loan_to_income", "credit_history_ratio", "income_per_age",
               "province_delinquency", "gds_ratio", "b20_stress_gds", "b20_stress_pass",
               "rate_spread"]
-NUMERIC = RAW_NUMERIC + ENGINEERED
+# Real Bank of Canada macro context (joined per loan; see macro.py / canadianize.py).
+BOC = ["boc_policy_rate", "boc_rate_change_12m", "boc_rate_vol"]
+NUMERIC = RAW_NUMERIC + ENGINEERED + BOC
+
+try:
+    from macro import current_macro
+    CURRENT_MACRO = current_macro()
+except Exception:  # offline / no cache yet — fall back to recent values
+    CURRENT_MACRO = {"boc_policy_rate": 2.5, "boc_rate_change_12m": 0.25, "boc_rate_vol": 0.1}
 
 # Bank of Canada overnight policy rate (approx., 2025) — macro reference for the spread.
 BOC_POLICY_RATE = 2.75
@@ -93,6 +101,12 @@ def engineer_features(df):
 
     # Macro: spread of the contract rate over the Bank of Canada policy rate.
     df["rate_spread"] = df["loan_int_rate"].fillna(11.0) - BOC_POLICY_RATE
+
+    # A new applicant is assessed under today's real BoC environment; historical loans
+    # already carry the environment of their origination month (joined in canadianize.py).
+    for col, val in CURRENT_MACRO.items():
+        if col not in df.columns:
+            df[col] = val
     return df
 
 

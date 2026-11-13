@@ -2,10 +2,9 @@
 
     streamlit run app.py
 
-Loads the calibrated model + metadata produced by `train.py` (run that first, after
-`python data/canadianize.py`). Scores an applicant, explains the score with SHAP
-(adverse-action reasons), lets you move the cost assumptions, and shows model performance,
-calibration and a Canadian Human Rights Act fairness read-out.
+Loads the calibrated model + metadata produced by `train.py` (run `python data/canadianize.py`
+and `python train.py` first). Scores an applicant, explains it with SHAP, lets you move the
+cost assumptions, and shows performance, calibration, a fairness audit and a portfolio view.
 """
 
 import json
@@ -14,6 +13,7 @@ import os
 import joblib
 import pandas as pd
 import streamlit as st
+from streamlit_extras.metric_cards import style_metric_cards
 
 import loan_default as L
 import threshold as TH
@@ -22,26 +22,44 @@ import explain as E
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROVINCES = ["ON", "QC", "BC", "AB", "MB", "SK", "NS", "NB", "NL", "PE"]
-RED, AMBER, GREEN = "#D52B1E", "#D97706", "#15803D"
+RED, AMBER, GREEN, INK, MUTED = "#D52B1E", "#B45309", "#15803D", "#0F172A", "#64748B"
 
 st.set_page_config(page_title="Canadian Credit Risk", page_icon="🍁", layout="wide")
 
 st.markdown("""
 <style>
-  .block-container {padding-top: 2.2rem; max-width: 1150px;}
-  .hero {display:flex; align-items:center; gap:.6rem;}
-  .hero h1 {font-size:2rem; margin:0; font-weight:800; letter-spacing:-.5px;}
-  .pill {display:inline-block; padding:.2rem .6rem; border-radius:999px;
-         background:#F3F5F7; color:#475569; font-size:.74rem; font-weight:600; margin-right:.3rem;}
-  .card {background:#FFFFFF; border:1px solid #E6EAEE; border-radius:14px;
-         padding:1.1rem 1.3rem; box-shadow:0 1px 2px rgba(16,24,40,.04);}
-  .badge {padding:.55rem 0; border-radius:10px; color:#fff; text-align:center;
-          font-size:1.5rem; font-weight:800; letter-spacing:.5px;}
-  .muted {color:#64748B; font-size:.85rem;}
-  .reason {display:flex; justify-content:space-between; padding:.45rem .7rem; margin:.3rem 0;
-           border-radius:8px; background:#F8FAFC; border:1px solid #EEF2F6;}
-  div[data-testid="stMetricValue"] {font-size:1.6rem;}
-  .stTabs [data-baseweb="tab"] {font-weight:600;}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  html, body, [class*="css"], .stMarkdown, button, input, select { font-family:'Inter',-apple-system,sans-serif; }
+  .block-container { padding-top:2rem; padding-bottom:3rem; max-width:1180px; }
+  #MainMenu, footer, header [data-testid="stToolbar"] { visibility:hidden; }
+
+  .brand { display:flex; align-items:center; gap:.7rem; }
+  .brand .leaf { font-size:1.9rem; }
+  .brand h1 { font-size:1.9rem; font-weight:800; letter-spacing:-1px; margin:0; color:var(--ink,#0F172A); }
+  .sub { color:#64748B; font-size:.92rem; margin:.35rem 0 .9rem; max-width:720px; }
+  .tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.4rem; }
+  .tag { font-size:.72rem; font-weight:600; color:#334155; background:#F1F5F9;
+         border:1px solid #E2E8F0; border-radius:999px; padding:.22rem .66rem; }
+  .tag.red { color:#B91C1C; background:#FEF2F2; border-color:#FECACA; }
+
+  .card { background:#FFFFFF; border:1px solid #E2E8F0; border-radius:16px; padding:1.3rem 1.4rem;
+          box-shadow:0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03); }
+  .badge { padding:.6rem 0; border-radius:12px; color:#fff; text-align:center;
+           font-size:1.35rem; font-weight:800; letter-spacing:1px; }
+  .kv { color:#0F172A; font-size:.95rem; line-height:1.9; }
+  .muted { color:#64748B; font-size:.85rem; }
+  .reason { display:flex; justify-content:space-between; align-items:center; padding:.6rem .9rem;
+            margin:.4rem 0; border-radius:10px; background:#F8FAFC; border:1px solid #EEF2F6; font-size:.92rem; }
+
+  .stTabs [data-baseweb="tab-list"] { gap:.4rem; border-bottom:1px solid #E2E8F0; }
+  .stTabs [data-baseweb="tab"] { font-weight:600; color:#64748B; padding:.4rem .2rem; }
+  .stTabs [aria-selected="true"] { color:#0F172A; }
+  section[data-testid="stSidebar"] { background:#FBFCFD; border-right:1px solid #E2E8F0; }
+  section[data-testid="stSidebar"] h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.08em;
+            color:#94A3B8; font-weight:700; }
+  div[data-testid="stMetric"] { background:#FFF; border:1px solid #E2E8F0; border-radius:14px; padding:.9rem 1rem; }
+  div[data-testid="stMetricValue"] { font-size:1.4rem; font-weight:700; }
+  div[data-testid="stMetricLabel"] p { font-size:.8rem; color:#64748B; font-weight:600; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,50 +85,53 @@ def load_scored():
     return F.load_scored()
 
 
+@st.cache_data
+def load_macro():
+    return pd.read_csv(os.path.join(HERE, "data", "boc_macro.csv"))
+
+
 def gauge(pct, color):
-    """A compact SVG donut showing the default-risk percentage."""
-    r, c = 54, 2 * 3.14159 * 54
+    r, c = 52, 2 * 3.14159 * 52
     dash = pct * c
     return f"""
-    <svg viewBox="0 0 140 140" width="150" height="150">
-      <circle cx="70" cy="70" r="{r}" fill="none" stroke="#EEF2F6" stroke-width="14"/>
-      <circle cx="70" cy="70" r="{r}" fill="none" stroke="{color}" stroke-width="14"
-        stroke-linecap="round" stroke-dasharray="{dash} {c-dash}"
-        transform="rotate(-90 70 70)"/>
-      <text x="70" y="66" text-anchor="middle" font-size="30" font-weight="800"
-        fill="#141A1F">{pct*100:.0f}%</text>
-      <text x="70" y="88" text-anchor="middle" font-size="12" fill="#64748B">default risk</text>
+    <svg viewBox="0 0 150 150" width="168" height="168" style="display:block;margin:0 auto">
+      <circle cx="75" cy="75" r="{r}" fill="none" stroke="#EEF2F6" stroke-width="11"/>
+      <circle cx="75" cy="75" r="{r}" fill="none" stroke="{color}" stroke-width="11"
+        stroke-linecap="round" stroke-dasharray="{dash} {c-dash}" transform="rotate(-90 75 75)"/>
+      <text x="75" y="72" text-anchor="middle" font-size="34" font-weight="800"
+        font-family="Inter" fill="#0F172A">{pct*100:.0f}%</text>
+      <text x="75" y="94" text-anchor="middle" font-size="12" font-family="Inter"
+        fill="#64748B">default risk</text>
     </svg>"""
 
 
 model, rf_base, meta, scored = load_model(), load_rf_base(), load_meta(), load_scored()
 medians = meta["medians"]
-m = meta["metrics"]
+mt = meta["metrics"]
 
 st.markdown(
-    f"<div class='hero'><span style='font-size:2rem'>🍁</span>"
-    f"<h1>Canadian Credit Risk Model</h1></div>"
-    f"<div style='margin:.5rem 0 .2rem'>"
-    f"<span class='pill'>ROC AUC {m['roc_auc']}</span>"
-    f"<span class='pill'>Calibrated · ECE {m['ece']}</span>"
-    f"<span class='pill'>SHAP explainable</span>"
-    f"<span class='pill'>Fairlearn audited</span>"
-    f"<span class='pill'>OSFI E-23 aligned</span></div>",
+    f"<div class='brand'><span class='leaf'>🍁</span><h1>Canadian Credit Risk Model</h1></div>"
+    f"<div class='sub'>Supervised ML for Canadian lending — calibrated default probability, "
+    f"SHAP explanations and a fairness audit, aligned to OSFI Guideline E-23.</div>"
+    f"<div class='tags'>"
+    f"<span class='tag'>ROC AUC {mt['roc_auc']}</span>"
+    f"<span class='tag'>Calibrated · ECE {mt['ece']}</span>"
+    f"<span class='tag'>SHAP</span><span class='tag'>Fairlearn</span>"
+    f"<span class='tag'>Bank of Canada data</span>"
+    f"<span class='tag red'>OSFI E-23</span></div>",
     unsafe_allow_html=True)
 
 with st.expander("About this model — data, scope and sources"):
     st.markdown(
         "Predicts loan-default probability for the **Canadian** context (CAD, province, "
-        "Equifax/TransUnion **300–900** score). Built to the expectations of **OSFI "
-        "Guideline E-23** (model risk, calibration, explainability, fairness) and audited "
-        "for bias under the **Canadian Human Rights Act**.\n\n"
-        "**Data:** a public credit-risk dataset *adapted* to a Canadian framing "
-        "(`data/canadianize.py`) — a transparent demonstration proxy, **not real Canadian "
-        "bank data** (none is open under PIPEDA). Real Canadian references worth grounding "
-        "a production model on: [CMHC mortgage-delinquency tables]"
-        "(https://www.cmhc-schl.gc.ca/en/professionals/housing-markets-data-and-research/"
-        "housing-data/data-tables/mortgage-and-debt), Statistics Canada debt-service-ratio "
-        "data, and the Bank of Canada's loan-level mortgage dataset.")
+        "Equifax/TransUnion **300–900** score) with real **Bank of Canada** policy-rate data. "
+        "Built to **OSFI Guideline E-23** and audited for bias under the **Canadian Human "
+        "Rights Act**.\n\n**Data:** a public credit-risk dataset *adapted* to a Canadian "
+        "framing (`data/canadianize.py`) — a transparent demonstration proxy, **not real "
+        "Canadian bank data** (none is open under PIPEDA). Real references: "
+        "[CMHC delinquency tables](https://www.cmhc-schl.gc.ca/en/professionals/housing-markets-data-and-research/housing-data/data-tables/mortgage-and-debt), "
+        "[OSFI B-20](https://www.osfi-bsif.gc.ca/en/guidance/guidance-library/residential-mortgage-underwriting-practices-procedures-guideline-b-20), "
+        "[Bank of Canada](https://www.bankofcanada.ca/valet/).")
 
 # ---- sidebar ----------------------------------------------------------------------
 st.sidebar.header("Applicant")
@@ -154,50 +175,54 @@ decision, color = (("DECLINE", RED) if risk >= t
                    else ("REVIEW", AMBER) if risk >= review_floor
                    else ("APPROVE", GREEN))
 
-tab_score, tab_why, tab_perf, tab_cost, tab_fair = st.tabs(
-    ["🧮 Score", "🔎 Why this score?", "📊 Performance", "💰 Cost & threshold", "⚖️ Fairness"])
+tab_score, tab_why, tab_perf, tab_cost, tab_fair, tab_port = st.tabs(
+    ["Score", "Why this score?", "Performance", "Cost & threshold", "Fairness", "Portfolio"])
 
 with tab_score:
-    left, right = st.columns([1, 1.15])
+    left, right = st.columns([1, 1.25], gap="large")
     with left:
         st.markdown(f"<div class='card' style='text-align:center'>{gauge(risk, color)}"
-                    f"<div class='badge' style='background:{color};margin-top:.6rem'>{decision}</div>"
+                    f"<div class='badge' style='background:{color};margin-top:.9rem'>{decision}</div>"
                     f"</div>", unsafe_allow_html=True)
     with right:
         st.markdown(
-            f"<div class='card'>"
-            f"<b>{province}</b> · age {age} · credit score <b>{credit_score}</b><br>"
-            f"<span class='muted'>CAD ${amount:,} loan · {rate:.1f}% · {intent.title()} · "
-            f"income ${income:,}</span><hr style='border:none;border-top:1px solid #EEF2F6;margin:.7rem 0'>"
+            f"<div class='card'><div class='kv'>"
+            f"<b style='font-size:1.05rem'>{province}</b> &nbsp;·&nbsp; age {age} &nbsp;·&nbsp; "
+            f"credit score <b>{credit_score}</b><br>"
+            f"<span class='muted'>CAD ${amount:,} · {rate:.1f}% · {intent.title()} · income ${income:,}</span>"
+            f"<hr style='border:none;border-top:1px solid #EEF2F6;margin:.8rem 0'>"
             f"Affordability (GDS) <b>{gds:.0%}</b> &nbsp;·&nbsp; "
-            f"OSFI B-20 stress test: "
-            f"<b style='color:{GREEN if stress_pass else RED}'>{'PASS' if stress_pass else 'FAIL'}</b> "
-            f"<span class='muted'>(stressed {stress_gds:.0%})</span><br>"
+            f"OSFI B-20 stress: <b style='color:{GREEN if stress_pass else RED}'>"
+            f"{'PASS' if stress_pass else 'FAIL'}</b> <span class='muted'>(stressed {stress_gds:.0%})</span><br>"
             f"Decision cutoff <b>{t:.0%}</b> &nbsp;·&nbsp; review {review_floor:.0%}–{t:.0%} "
-            f"&nbsp;·&nbsp; approve below<br>"
-            f"<span class='muted'>Threshold is the cost-minimising cutoff for the current "
-            f"LGD/term — change them in the sidebar.</span></div>",
-            unsafe_allow_html=True)
+            f"&nbsp;·&nbsp; approve below"
+            f"</div></div>", unsafe_allow_html=True)
+        st.caption("The threshold is the cost-minimising cutoff for the current LGD/term — "
+                   "adjust them in the sidebar.")
 
 with tab_why:
-    st.subheader("Why this score? (SHAP)")
-    st.caption("The features that pushed this applicant's risk up or down — the basis for an "
+    st.markdown("##### Why this score? — SHAP")
+    st.caption("Features that pushed this applicant's risk up or down — the basis for an "
                "adverse-action notice required of Canadian lenders.")
     for feat, val in E.top_reasons(rf_base, feats, k=5):
         arrow, col = ("▲ raises risk", RED) if val > 0 else ("▼ lowers risk", GREEN)
         st.markdown(f"<div class='reason'><span><b>{feat}</b></span>"
-                    f"<span style='color:{col};font-weight:600'>{arrow} ({val:+.3f})</span></div>",
+                    f"<span style='color:{col};font-weight:700'>{arrow} &nbsp;{val:+.3f}</span></div>",
                     unsafe_allow_html=True)
     p = os.path.join(L.REPORTS, "shap_summary.png")
     if os.path.exists(p):
-        st.image(p, caption="Global feature impact (SHAP)", width=640)
+        st.image(p, caption="Global feature impact (SHAP)", width=660)
 
 with tab_perf:
-    c = st.columns(len(m))
     labels = {"roc_auc": "ROC AUC", "accuracy": "Accuracy", "precision": "Precision",
               "recall": "Recall", "f1": "F1", "brier": "Brier", "ece": "ECE"}
-    for col, (k, v) in zip(c, m.items()):
-        col.metric(labels.get(k, k), f"{v:.3f}")
+    items = [(labels.get(k, k), v) for k, v in mt.items()]
+    for row in (items[:4], items[4:]):
+        cols = st.columns(4)
+        for col, (name, v) in zip(cols, row):
+            col.metric(name, f"{v:.3f}")
+    style_metric_cards(background_color="#FFFFFF", border_left_color=RED,
+                       border_color="#E2E8F0", box_shadow=False)
     st.caption("Brier/ECE measure probability calibration (lower = better).")
     cols = st.columns(3)
     for col, img in zip(cols, ["roc_curves.png", "confusion_matrix.png", "calibration_curve.png"]):
@@ -206,11 +231,13 @@ with tab_perf:
             col.image(p, use_container_width=True)
 
 with tab_cost:
-    st.subheader("Cost-based threshold (CAD)")
+    st.markdown("##### Cost-based threshold (CAD)")
     a, b, cc = st.columns(3)
     a.metric("Optimal threshold", f"{t:.2f}")
     b.metric("Expected cost", f"${best['cost']:,.0f}")
     cc.metric("Saved vs 0.50", f"${best['saved']:,.0f}")
+    style_metric_cards(background_color="#FFFFFF", border_left_color=RED,
+                       border_color="#E2E8F0", box_shadow=False)
     p = os.path.join(L.REPORTS, "cost_threshold.png")
     if os.path.exists(p):
         st.image(p, width=560)
@@ -218,12 +245,44 @@ with tab_cost:
                "foregone interest. The optimal cutoff minimises the total.")
 
 with tab_fair:
-    st.subheader(f"Fairness at threshold {t:.2f}")
-    st.caption("Canadian Human Rights Act grounds. Age is a protected ground; province is "
-               "regional access. No sex/gender field in the data, so that ground is not audited.")
+    st.markdown(f"##### Fairness at threshold {t:.2f} — Canadian Human Rights Act")
+    st.caption("Age is a protected ground; province is regional access. No sex/gender field "
+               "in the data, so that ground is not audited.")
     for by in ["age_band", "province"]:
         d = F.disparities(scored, by, t)
         st.markdown(f"**By {by}** · demographic-parity diff `{d['demographic_parity_difference']}` "
                     f"· equalized-odds diff `{d['equalized_odds_difference']}`")
         st.dataframe(F.group_metrics(scored, by, t).round(3),
                      use_container_width=True, hide_index=True)
+
+with tab_port:
+    st.markdown("##### Portfolio overview")
+    st.caption("The held-out loan book scored by the model — the same views exported for "
+               "Power BI via `python export.py`.")
+    port = scored.copy()
+    port["decision"] = pd.cut(port["proba"], [-0.01, review_floor, t, 1.01],
+                              labels=["approve", "review", "decline"])
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Loans", f"{len(port):,}")
+    k2.metric("Approved", f"{(port['decision'] == 'approve').mean():.0%}")
+    k3.metric("Default rate", f"{port['actual'].mean():.0%}")
+    k4.metric("Avg risk", f"{port['proba'].mean():.0%}")
+    style_metric_cards(background_color="#FFFFFF", border_left_color=RED,
+                       border_color="#E2E8F0", box_shadow=False)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.caption("Decision mix")
+        st.bar_chart(port["decision"].value_counts(), color=GREEN)
+    with c2:
+        st.caption("Default rate by province")
+        st.bar_chart(port.groupby("province", observed=True)["actual"].mean()
+                     .sort_values(ascending=False), color=RED)
+    c3, c4 = st.columns(2)
+    with c3:
+        st.caption("Risk distribution")
+        bands = pd.cut(port["proba"], [0, .1, .25, .5, 1.01],
+                       labels=["<10%", "10–25%", "25–50%", ">50%"]).value_counts().sort_index()
+        st.bar_chart(bands, color=INK)
+    with c4:
+        st.caption("Bank of Canada policy rate — real history")
+        st.line_chart(load_macro().set_index("month")["boc_policy_rate"], color=RED)

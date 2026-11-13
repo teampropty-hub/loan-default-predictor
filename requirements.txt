@@ -5,3 +5,4 @@ streamlit
 joblib
 shap
 fairlearn
+streamlit-extras

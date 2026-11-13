@@ -23,8 +23,10 @@ import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from loan_default import PROVINCE_DELINQUENCY  # real relative provincial risk
+import macro as M  # real Bank of Canada policy-rate history
 
 SEED = 42
+BOC_COLS = ["boc_policy_rate", "boc_rate_change_12m", "boc_rate_vol"]
 
 # Approximate share of the Canadian population by province (StatsCan, rounded).
 PROVINCES = {
@@ -72,13 +74,39 @@ def add_credit_score(df, rng):
     return df
 
 
+def add_macro(df, rng):
+    """Give each loan a synthetic origination month and join the REAL Bank of Canada macro
+    environment of that month, tilted so defaults skew toward monetary-tightening periods
+    (the real cyclical pattern). New requests get today's environment."""
+    boc = M.load_macro()
+    if "loan_status" not in df.columns:
+        for k, v in M.current_macro().items():
+            df[k] = v
+        return df
+
+    stress = boc["boc_rate_change_12m"].clip(lower=0) + 0.3 * boc["boc_policy_rate"]
+    stress = (stress - stress.min()) / (stress.max() - stress.min() + 1e-9)
+    w_def = (0.25 + stress).to_numpy(dtype=float); w_def = w_def / w_def.sum()
+    w_ok = (0.25 + (1 - stress)).to_numpy(dtype=float); w_ok = w_ok / w_ok.sum()
+    is_def = df["loan_status"].values == 1
+    idx = np.empty(len(df), dtype=int)
+    idx[is_def] = rng.choice(len(boc), size=int(is_def.sum()), p=w_def)
+    idx[~is_def] = rng.choice(len(boc), size=int((~is_def).sum()), p=w_ok)
+    picked = boc.iloc[idx].reset_index(drop=True)
+    for col in BOC_COLS:
+        df[col] = picked[col].values
+    df["orig_month"] = picked["month"].values
+    return df
+
+
 def canadianize(src, dst):
     rng = np.random.default_rng(SEED)
     df = pd.read_csv(os.path.join(HERE, src))
     df = add_province(df, rng)
     df = add_credit_score(df, rng)
+    df = add_macro(df, rng)
     df.to_csv(os.path.join(HERE, dst), index=False)
-    print(f"{src} -> {dst}  ({len(df):,} rows, +province +credit_score)")
+    print(f"{src} -> {dst}  ({len(df):,} rows, +province +credit_score +BoC macro)")
     return df
 
 

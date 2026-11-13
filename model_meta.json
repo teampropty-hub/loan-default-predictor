@@ -1,20 +1,20 @@
 {
   "model": "Isotonic-calibrated RandomForestClassifier",
   "currency": "CAD",
-  "threshold": 0.42,
+  "threshold": 0.46,
   "cost_params": {
     "lgd": 0.6,
     "term_years": 3.0
   },
-  "cost_saved_vs_0.5": 86984.01,
+  "cost_saved_vs_0.5": 67195.17,
   "metrics": {
-    "accuracy": 0.9255,
-    "precision": 0.9484,
-    "recall": 0.6941,
-    "f1": 0.8015,
-    "roc_auc": 0.9287,
-    "brier": 0.0605,
-    "ece": 0.0072
+    "accuracy": 0.9259,
+    "precision": 0.9351,
+    "recall": 0.7073,
+    "f1": 0.8054,
+    "roc_auc": 0.9344,
+    "brier": 0.06,
+    "ece": 0.0048
   },
   "medians": {
     "person_age": 26.0,
@@ -32,7 +32,10 @@
     "gds_ratio": 0.03844094001258351,
     "b20_stress_gds": 0.0402298606189621,
     "b20_stress_pass": 1.0,
-    "rate_spread": 8.24
+    "rate_spread": 8.24,
+    "boc_policy_rate": 1.0,
+    "boc_rate_change_12m": 0.0,
+    "boc_rate_vol": 0.12309149097933268
   },
   "categorical": [
     "person_home_ownership",
@@ -57,6 +60,9 @@
     "gds_ratio",
     "b20_stress_gds",
     "b20_stress_pass",
-    "rate_spread"
+    "rate_spread",
+    "boc_policy_rate",
+    "boc_rate_change_12m",
+    "boc_rate_vol"
   ]
 }
