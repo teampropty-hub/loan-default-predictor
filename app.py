@@ -33,29 +33,39 @@ st.markdown("""
   .block-container { padding-top:2rem; padding-bottom:3rem; max-width:1180px; }
   #MainMenu, footer, header [data-testid="stToolbar"] { visibility:hidden; }
 
-  .brand { display:flex; align-items:center; gap:.7rem; }
-  .brand .leaf { font-size:1.9rem; }
-  .brand h1 { font-size:1.9rem; font-weight:800; letter-spacing:-1px; margin:0; color:var(--ink,#0F172A); }
-  .sub { color:#64748B; font-size:.92rem; margin:.35rem 0 .9rem; max-width:720px; }
-  .tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.4rem; }
+  .stApp { background:
+     radial-gradient(1200px 300px at 20% -8%, #FEF2F2 0%, rgba(254,242,242,0) 60%), #FFFFFF; }
+
+  .brand { display:flex; align-items:center; gap:.65rem; }
+  .brand .leaf { font-size:1.95rem; }
+  .brand h1 { font-size:1.95rem; font-weight:800; letter-spacing:-1.2px; margin:0; color:#0F172A; }
+  .sub { color:#64748B; font-size:.93rem; margin:.4rem 0 .95rem; max-width:720px; line-height:1.5; }
+  .tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:.7rem; }
   .tag { font-size:.72rem; font-weight:600; color:#334155; background:#F1F5F9;
-         border:1px solid #E2E8F0; border-radius:999px; padding:.22rem .66rem; }
+         border:1px solid #E2E8F0; border-radius:999px; padding:.24rem .68rem; }
   .tag.red { color:#B91C1C; background:#FEF2F2; border-color:#FECACA; }
 
-  .card { background:#FFFFFF; border:1px solid #E2E8F0; border-radius:16px; padding:1.3rem 1.4rem;
-          box-shadow:0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03); }
-  .badge { padding:.6rem 0; border-radius:12px; color:#fff; text-align:center;
-           font-size:1.35rem; font-weight:800; letter-spacing:1px; }
-  .kv { color:#0F172A; font-size:.95rem; line-height:1.9; }
+  .card { background:#FFFFFF; border:1px solid #E6EAEF; border-radius:18px; padding:1.35rem 1.45rem;
+          box-shadow:0 2px 6px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03);
+          transition:box-shadow .18s ease, transform .18s ease; }
+  .card:hover { box-shadow:0 8px 24px rgba(15,23,42,.08); }
+  .badge { padding:.62rem 0; border-radius:12px; color:#fff; text-align:center;
+           font-size:1.35rem; font-weight:800; letter-spacing:1px;
+           box-shadow:0 6px 16px -6px currentColor; }
+  .kv { color:#0F172A; font-size:.95rem; line-height:1.85; }
   .muted { color:#64748B; font-size:.85rem; }
-  .reason { display:flex; justify-content:space-between; align-items:center; padding:.6rem .9rem;
-            margin:.4rem 0; border-radius:10px; background:#F8FAFC; border:1px solid #EEF2F6; font-size:.92rem; }
+  .reason { display:flex; justify-content:space-between; align-items:center; padding:.62rem .9rem;
+            margin:.42rem 0; border-radius:11px; background:#F8FAFC; border:1px solid #EEF2F6; font-size:.92rem; }
+  .foot { margin-top:2.4rem; padding-top:1rem; border-top:1px solid #E2E8F0; color:#94A3B8;
+          font-size:.78rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+  .foot a { color:#D52B1E; text-decoration:none; font-weight:600; }
 
-  .stTabs [data-baseweb="tab-list"] { gap:.4rem; border-bottom:1px solid #E2E8F0; }
-  .stTabs [data-baseweb="tab"] { font-weight:600; color:#64748B; padding:.4rem .2rem; }
-  .stTabs [aria-selected="true"] { color:#0F172A; }
+  .stTabs [data-baseweb="tab-list"] { gap:.3rem; border-bottom:1px solid #E2E8F0; }
+  .stTabs [data-baseweb="tab"] { font-weight:600; color:#64748B; padding:.45rem .85rem;
+           border-radius:9px 9px 0 0; }
+  .stTabs [aria-selected="true"] { color:#B91C1C; background:#FEF2F2; }
   section[data-testid="stSidebar"] { background:#FBFCFD; border-right:1px solid #E2E8F0; }
-  section[data-testid="stSidebar"] h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.08em;
+  section[data-testid="stSidebar"] h2 { font-size:.76rem; text-transform:uppercase; letter-spacing:.09em;
             color:#94A3B8; font-weight:700; }
   div[data-testid="stMetric"] { background:#FFF; border:1px solid #E2E8F0; border-radius:14px; padding:.9rem 1rem; }
   div[data-testid="stMetricValue"] { font-size:1.4rem; font-weight:700; }
@@ -94,11 +104,14 @@ def gauge(pct, color):
     r, c = 52, 2 * 3.14159 * 52
     dash = pct * c
     return f"""
-    <svg viewBox="0 0 150 150" width="168" height="168" style="display:block;margin:0 auto">
-      <circle cx="75" cy="75" r="{r}" fill="none" stroke="#EEF2F6" stroke-width="11"/>
-      <circle cx="75" cy="75" r="{r}" fill="none" stroke="{color}" stroke-width="11"
+    <svg viewBox="0 0 150 150" width="172" height="172" style="display:block;margin:0 auto">
+      <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="{color}" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="{color}"/></linearGradient></defs>
+      <circle cx="75" cy="75" r="{r}" fill="none" stroke="#EEF2F6" stroke-width="12"/>
+      <circle cx="75" cy="75" r="{r}" fill="none" stroke="url(#gg)" stroke-width="12"
         stroke-linecap="round" stroke-dasharray="{dash} {c-dash}" transform="rotate(-90 75 75)"/>
-      <text x="75" y="72" text-anchor="middle" font-size="34" font-weight="800"
+      <text x="75" y="71" text-anchor="middle" font-size="35" font-weight="800"
         font-family="Inter" fill="#0F172A">{pct*100:.0f}%</text>
       <text x="75" y="94" text-anchor="middle" font-size="12" font-family="Inter"
         fill="#64748B">default risk</text>
@@ -286,3 +299,11 @@ with tab_port:
     with c4:
         st.caption("Bank of Canada policy rate — real history")
         st.line_chart(load_macro().set_index("month")["boc_policy_rate"], color=RED)
+
+st.markdown(
+    "<div class='foot'>"
+    "<span>🍁 Canadian Credit Risk Model · OSFI E-23 aligned · educational demo on adapted "
+    "data — not a production credit model</span>"
+    "<span><a href='https://github.com/sebasalvarezvilla/canadian-credit-risk-model' "
+    "target='_blank'>View source on GitHub →</a></span></div>",
+    unsafe_allow_html=True)
