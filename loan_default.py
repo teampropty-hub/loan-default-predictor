@@ -39,8 +39,21 @@ RAW_CATEGORICAL = ["person_home_ownership", "loan_intent", "loan_grade",
 RAW_NUMERIC = ["person_age", "person_income", "person_emp_length", "loan_amnt",
                "loan_int_rate", "loan_percent_income", "cb_person_cred_hist_length",
                "credit_score"]
-ENGINEERED = ["loan_to_income", "credit_history_ratio", "income_per_age"]
+ENGINEERED = ["loan_to_income", "credit_history_ratio", "income_per_age",
+              "province_delinquency", "gds_ratio", "b20_stress_gds", "b20_stress_pass",
+              "rate_spread"]
 NUMERIC = RAW_NUMERIC + ENGINEERED
+
+# Bank of Canada overnight policy rate (approx., 2025) — macro reference for the spread.
+BOC_POLICY_RATE = 2.75
+# Approximate relative provincial mortgage 90+ day delinquency levels (%), from Equifax
+# Market Pulse / CMHC public reporting (Ontario highest, then BC). Grounds the province
+# signal in real regional risk ordering.
+PROVINCE_DELINQUENCY = {
+    "ON": 0.27, "BC": 0.19, "AB": 0.17, "SK": 0.16, "NL": 0.14,
+    "MB": 0.13, "NB": 0.13, "NS": 0.12, "QC": 0.12, "PE": 0.11,
+}
+_AMORT_MONTHS = 5 * 12  # assumed amortization for a consumer loan
 
 
 def load_data(path=DATA):
@@ -54,12 +67,32 @@ def load_data(path=DATA):
     return df
 
 
+def _annual_debt_service(amount, annual_rate_pct, income):
+    """Estimated annual loan payment / income, amortized over _AMORT_MONTHS."""
+    r = (annual_rate_pct.fillna(11.0) / 100 / 12)
+    monthly = amount * r / (1 - (1 + r) ** (-_AMORT_MONTHS))
+    return (monthly * 12 / income.clip(lower=1)).clip(0, 2)
+
+
 def engineer_features(df):
-    """Add a few interpretable ratios a credit analyst would actually look at."""
+    """Interpretable ratios plus Canadian affordability / regional-risk features."""
     df = df.copy()
     df["loan_to_income"] = df["loan_amnt"] / df["person_income"].clip(lower=1)
     df["credit_history_ratio"] = df["cb_person_cred_hist_length"] / df["person_age"].clip(lower=1)
     df["income_per_age"] = df["person_income"] / df["person_age"].clip(lower=1)
+
+    # Real regional risk: provincial delinquency level (Equifax/CMHC).
+    df["province_delinquency"] = df["province"].map(PROVINCE_DELINQUENCY).fillna(0.15)
+
+    # Affordability (gross-debt-service style) and the OSFI B-20 stress test:
+    # qualify at max(contract + 2%, 5.25% floor); TDS must stay under 44%.
+    df["gds_ratio"] = _annual_debt_service(df["loan_amnt"], df["loan_int_rate"], df["person_income"])
+    stress_rate = (df["loan_int_rate"].fillna(11.0) + 2).clip(lower=5.25)
+    df["b20_stress_gds"] = _annual_debt_service(df["loan_amnt"], stress_rate, df["person_income"])
+    df["b20_stress_pass"] = (df["b20_stress_gds"] <= 0.44).astype(int)
+
+    # Macro: spread of the contract rate over the Bank of Canada policy rate.
+    df["rate_spread"] = df["loan_int_rate"].fillna(11.0) - BOC_POLICY_RATE
     return df
 
 

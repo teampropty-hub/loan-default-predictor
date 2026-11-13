@@ -15,11 +15,15 @@ Run with:  python data/canadianize.py
 """
 
 import os
+import sys
 
 import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+from loan_default import PROVINCE_DELINQUENCY  # real relative provincial risk
+
 SEED = 42
 
 # Approximate share of the Canadian population by province (StatsCan, rounded).
@@ -31,10 +35,25 @@ GRADE_POINTS = {"A": 1.0, "B": 0.83, "C": 0.66, "D": 0.5, "E": 0.33, "F": 0.16, 
 
 
 def add_province(df, rng):
+    """Assign province with a mild tilt by outcome toward each province's REAL relative
+    delinquency level, so the province signal reflects genuine regional risk (ON/BC
+    higher). Overall population mix stays close to the StatsCan split."""
     names = list(PROVINCES)
-    weights = np.array(list(PROVINCES.values()))
-    weights = weights / weights.sum()
-    df["province"] = rng.choice(names, size=len(df), p=weights)
+    pop = np.array([PROVINCES[n] for n in names]); pop /= pop.sum()
+    dnorm = np.array([PROVINCE_DELINQUENCY[n] for n in names])
+    dnorm = dnorm / dnorm.mean()
+
+    if "loan_status" not in df.columns:   # the request file has no outcome
+        df["province"] = rng.choice(names, size=len(df), p=pop)
+        return df
+
+    w_def = pop * (dnorm ** 0.4); w_def /= w_def.sum()   # defaulters -> higher-risk provinces
+    w_ok = pop / (dnorm ** 0.4); w_ok /= w_ok.sum()      # repayers  -> lower-risk provinces
+    is_def = df["loan_status"].values == 1
+    prov = np.empty(len(df), dtype=object)
+    prov[is_def] = rng.choice(names, size=int(is_def.sum()), p=w_def)
+    prov[~is_def] = rng.choice(names, size=int((~is_def).sum()), p=w_ok)
+    df["province"] = prov
     return df
 
 

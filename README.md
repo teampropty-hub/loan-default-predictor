@@ -41,7 +41,21 @@ maps to one of its expectations:
 | Calibrated, reliable outputs | Isotonic calibration, Brier/ECE — `calibration.py` |
 | Explainability | SHAP global + per-applicant reasons — `explain.py` |
 | Bias & fairness controls | Fairlearn audit under the Canadian Human Rights Act — `fairness.py` |
+| Ongoing monitoring | Population-Stability-Index drift detection — `monitoring.py` |
 | Data governance & privacy | Documented provenance; no real personal data (PIPEDA) |
+
+## Canadian underwriting features
+
+Beyond the raw application fields, the model engineers the signals a Canadian lender
+actually uses (`loan_default.py`):
+
+- **Affordability** — a gross-debt-service (`gds_ratio`) estimate, and the **OSFI B-20
+  stress test**: the borrower is re-qualified at `max(rate + 2%, 5.25%)` and flagged if the
+  stressed debt-service exceeds 44%.
+- **Regional risk** — `province_delinquency`, each province's real relative 90+ day
+  delinquency level (Equifax / CMHC), so Ontario and Saskatchewan carry the higher risk they
+  do in reality.
+- **Macro** — `rate_spread`, the contract rate over the **Bank of Canada** policy rate.
 
 ## Quickstart
 
@@ -59,12 +73,12 @@ Held-out test set (20% never seen in training), calibrated Random Forest:
 | metric | value |
 |---|---|
 | ROC AUC | **0.929** |
-| accuracy | 93.0% |
-| precision | 95.7% |
-| recall | 71.1% |
-| F1 | 81.6% |
-| Brier score | 0.059 |
-| **ECE (calibration error)** | **0.006** |
+| accuracy | 92.6% |
+| precision | 94.8% |
+| recall | 69.4% |
+| F1 | 80.2% |
+| Brier score | 0.061 |
+| **ECE (calibration error)** | **0.007** |
 
 | ROC curves | Calibration (reliability) | SHAP — feature impact |
 |---|---|---|
@@ -72,26 +86,37 @@ Held-out test set (20% never seen in training), calibrated Random Forest:
 
 The near-zero ECE means a predicted "20% risk" really does default ~20% of the time — the
 probabilities can feed IFRS 9 expected-credit-loss provisioning and risk-based pricing. The
-**credit score** is the strongest driver, as a lender would expect.
+**affordability (B-20 stress / GDS), income and credit score** features carry the most
+weight, as a lender would expect. Hyperparameters can be re-tuned with `python tune.py`.
 
 ## Cost-based threshold
 
 The two mistakes cost different amounts: approving a loan that defaults loses
-`principal × LGD`; declining a good borrower loses the foregone interest. Because the model
-is **calibrated**, the money-optimal cutoff already sits near 0.49 — the cost analysis
-fine-tunes it (and lets you re-derive it live in the demo when LGD/term change).
+`principal × LGD`; declining a good borrower loses the foregone interest. Minimising total
+expected cost on the held-out set moves the cutoff to **~0.42**, saving **~$87k CAD** vs the
+naive 0.5 — and the demo lets you re-derive it live when LGD/term change.
 
 ![Cost vs threshold](reports/cost_threshold.png)
 
 ## Fairness (Canadian Human Rights Act)
 
 Audited with **Fairlearn** (`MetricFrame`, demographic-parity and equalized-odds
-differences) across **age** (a protected ground) and **province** (regional access). Both
-pass the four-fifths rule — the largest demographic-parity gap is 0.06 by age and 0.13 by
-province. The dataset has **no sex/gender** field, so that protected ground is not audited —
-stated plainly rather than faked.
+differences) across **age** (a protected ground) and **province** (regional access). Because
+provincial risk is grounded in real delinquency levels, **Ontario and Saskatchewan show the
+lowest approval rates** (ratios ~0.82) and the highest default rates — a genuine regional
+pattern. All groups still clear the four-fifths rule (demographic-parity gap 0.06 by age,
+0.18 by province), but the audit surfaces where a credit team would look next. The dataset
+has **no sex/gender** field, so that protected ground is not audited — stated plainly rather
+than faked.
 
 ![Fairness by province](reports/fairness_province.png)
+
+## Model monitoring (E-23 lifecycle)
+
+A model degrades when the population it scores drifts from its training data. `monitoring.py`
+computes the **Population Stability Index** per feature — `< 0.10` stable, `0.10–0.25`
+moderate, `> 0.25` significant drift that warrants revalidation. The script demonstrates it
+catching a simulated rate/income shock (interest-rate PSI jumps past 2.0 → **DRIFT**).
 
 ## Repo map
 
@@ -104,26 +129,23 @@ stated plainly rather than faked.
 | `explain.py` | SHAP explainability + per-applicant adverse-action reasons |
 | `threshold.py` | Cost-minimising decision threshold |
 | `fairness.py` | Fairlearn fairness audit (age + province) |
+| `monitoring.py` | Data-drift detection (Population Stability Index) |
+| `tune.py` | Hyperparameter search (RandomizedSearchCV) |
 | `app.py` | Streamlit demo |
 | `analysis.ipynb` | Narrative walkthrough with charts |
 
-## Roadmap — grounding in real Canadian data
+## Grounding in real Canadian data
 
-The model is already aligned to Canadian regulation; the next step is replacing the
-adapted dataset's synthetic pieces with real Canadian signals. Concrete, open sources:
+The Canadian signals are built from real public references, cited in code:
+[CMHC mortgage-delinquency tables](https://www.cmhc-schl.gc.ca/en/professionals/housing-markets-data-and-research/housing-data/data-tables/mortgage-and-debt)
+(relative provincial risk), the [OSFI B-20](https://www.osfi-bsif.gc.ca/en/guidance/guidance-library/residential-mortgage-underwriting-practices-procedures-guideline-b-20)
+stress test, [Statistics Canada debt-service data](https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1010013401)
+(GDS/TDS), and the [Bank of Canada](https://www.bankofcanada.ca/rates/) policy rate.
 
-- **Province risk from [CMHC mortgage-delinquency tables](https://www.cmhc-schl.gc.ca/en/professionals/housing-markets-data-and-research/housing-data/data-tables/mortgage-and-debt)**
-  — real delinquency rates by province/CMA to ground the `province` feature instead of
-  sampling it independently.
-- **Debt-service ratios from [Statistics Canada (Table 10-10-0134-01)](https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=1010013401)**
-  — add **GDS/TDS** ratios, the core affordability metric Canadian lenders use.
-- **[OSFI B-20](https://www.osfi-bsif.gc.ca/en/guidance/guidance-library/residential-mortgage-underwriting-practices-procedures-guideline-b-20) stress test**
-  — qualify the borrower at a stress rate, as required for Canadian mortgages.
-- **Macro context from the [Bank of Canada](https://www.bankofcanada.ca/rates/)** — policy
-  rate and loan-level mortgage data as time-varying features.
-
-These would turn the province dimension from illustrative into predictive and make the
-affordability features match real Canadian underwriting.
+**Still synthetic (next steps):** the per-applicant rows come from an adapted public dataset,
+so the exact provincial levels are illustrative relative values, and there is no time axis
+for true time-based (out-of-time) validation. Production use would ingest the live CMHC/
+StatsCan tables and a dated loan book.
 
 ## Data & disclaimer
 

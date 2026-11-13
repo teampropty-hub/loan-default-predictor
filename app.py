@@ -147,6 +147,9 @@ applicant = pd.DataFrame([{
 }])
 feats = L.prepare_features(applicant, medians)
 risk = float(model.predict_proba(feats)[:, 1][0])
+gds = float(feats["gds_ratio"].iloc[0])
+stress_gds = float(feats["b20_stress_gds"].iloc[0])
+stress_pass = bool(feats["b20_stress_pass"].iloc[0])
 decision, color = (("DECLINE", RED) if risk >= t
                    else ("REVIEW", AMBER) if risk >= review_floor
                    else ("APPROVE", GREEN))
@@ -166,6 +169,10 @@ with tab_score:
             f"<b>{province}</b> · age {age} · credit score <b>{credit_score}</b><br>"
             f"<span class='muted'>CAD ${amount:,} loan · {rate:.1f}% · {intent.title()} · "
             f"income ${income:,}</span><hr style='border:none;border-top:1px solid #EEF2F6;margin:.7rem 0'>"
+            f"Affordability (GDS) <b>{gds:.0%}</b> &nbsp;·&nbsp; "
+            f"OSFI B-20 stress test: "
+            f"<b style='color:{GREEN if stress_pass else RED}'>{'PASS' if stress_pass else 'FAIL'}</b> "
+            f"<span class='muted'>(stressed {stress_gds:.0%})</span><br>"
             f"Decision cutoff <b>{t:.0%}</b> &nbsp;·&nbsp; review {review_floor:.0%}–{t:.0%} "
             f"&nbsp;·&nbsp; approve below<br>"
             f"<span class='muted'>Threshold is the cost-minimising cutoff for the current "
