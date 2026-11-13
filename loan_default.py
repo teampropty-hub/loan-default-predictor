@@ -14,6 +14,8 @@ analysis.ipynb so the notebook and the script never drift apart.
 
 import os
 
+import matplotlib
+matplotlib.use("Agg")  # headless: write charts to files, never open a window
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
@@ -133,16 +135,29 @@ def _save_importances(model):
     plt.close()
 
 
-def score_requests(model, train_df):
-    """Score the pending applicants and attach an approve/review/decline action."""
-    requests = engineer_features(pd.read_csv(REQUESTS))
-    feats = requests.reindex(columns=RAW_CATEGORICAL + NUMERIC)
-    # Fill any gaps with the medians learned from training (no leakage).
+def prepare_features(df, train_medians):
+    """Engineer + align features and fill any gaps with training medians (no leakage).
+
+    Shared by score_requests, fairness.py and the Streamlit app so every path feeds the
+    model exactly the same columns in the same order.
+    """
+    feats = engineer_features(df).reindex(columns=RAW_CATEGORICAL + NUMERIC)
     for col in NUMERIC:
-        feats[col] = feats[col].fillna(train_df[col].median())
+        feats[col] = feats[col].fillna(train_medians[col])
+    return feats
+
+
+def score_requests(model, train_df, threshold=0.5):
+    """Score the pending applicants and attach an approve/review/decline action."""
+    medians = train_df[NUMERIC].median()
+    requests = pd.read_csv(REQUESTS)
+    feats = prepare_features(requests, medians)
     requests["default_risk"] = model.predict_proba(feats)[:, 1]
-    requests["action"] = pd.cut(requests["default_risk"], [-0.01, 0.2, 0.5, 1.01],
-                                labels=["approve", "review", "DECLINE"])
+    # Decline at/above the threshold; a review band sits just below it.
+    review_floor = max(0.0, threshold - 0.15)
+    requests["action"] = pd.cut(
+        requests["default_risk"], [-0.01, review_floor, threshold, 1.01],
+        labels=["approve", "review", "DECLINE"])
     return requests.sort_values("default_risk", ascending=False)
 
 
