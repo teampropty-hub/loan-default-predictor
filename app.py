@@ -25,7 +25,7 @@ PROVINCES = ["ON", "QC", "BC", "AB", "MB", "SK", "NS", "NB", "NL", "PE"]
 RED, AMBER, GREEN, INK, MUTED = "#D52B1E", "#B45309", "#15803D", "#0F172A", "#64748B"
 
 st.set_page_config(page_title="Canadian Credit Risk", page_icon="🍁", layout="wide",
-                   initial_sidebar_state="expanded")
+                   initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -148,24 +148,26 @@ with st.expander("About this model — data, scope and sources"):
         "[Bank of Canada](https://www.bankofcanada.ca/valet/).")
 
 # ---- sidebar ----------------------------------------------------------------------
-st.sidebar.header("Applicant")
-age = st.sidebar.slider("Age", 18, 80, 30)
-province = st.sidebar.selectbox("Province", PROVINCES)
-credit_score = st.sidebar.slider("Credit score (Equifax/TransUnion, 300–900)", 300, 900, 700)
-income = st.sidebar.number_input("Annual income (CAD $)", 4000, 500000, 60000, step=1000)
-home = st.sidebar.selectbox("Home ownership", ["RENT", "MORTGAGE", "OWN", "OTHER"])
-emp_len = st.sidebar.slider("Employment length (years)", 0, 40, 5)
-intent = st.sidebar.selectbox("Loan intent",
-    ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"])
-grade = st.sidebar.selectbox("Internal loan grade", list("ABCDEFG"))
-amount = st.sidebar.number_input("Loan amount (CAD $)", 500, 40000, 10000, step=500)
-rate = st.sidebar.slider("Interest rate (%)", 5.0, 24.0, 11.0, step=0.1)
-prior_default = st.sidebar.selectbox("Prior default on file", ["N", "Y"])
-hist_len = st.sidebar.slider("Credit history length (years)", 2, 30, 5)
-
-st.sidebar.header("Cost assumptions")
-lgd = st.sidebar.slider("Loss given default (LGD)", 0.1, 1.0, TH.DEFAULT_LGD, step=0.05)
-term = st.sidebar.slider("Loan term (years)", 1.0, 7.0, TH.DEFAULT_TERM, step=0.5)
+with st.expander("⚙️  Applicant & cost assumptions — adjust to score live", expanded=True):
+    c = st.columns(4)
+    age = c[0].slider("Age", 18, 80, 30)
+    province = c[0].selectbox("Province", PROVINCES)
+    credit_score = c[0].slider("Credit score (300–900)", 300, 900, 700)
+    income = c[1].number_input("Annual income (CAD $)", 4000, 500000, 60000, step=1000)
+    home = c[1].selectbox("Home ownership", ["RENT", "MORTGAGE", "OWN", "OTHER"])
+    emp_len = c[1].slider("Employment length (yrs)", 0, 40, 5)
+    intent = c[2].selectbox("Loan intent",
+        ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"])
+    grade = c[2].selectbox("Internal loan grade", list("ABCDEFG"))
+    amount = c[2].number_input("Loan amount (CAD $)", 500, 40000, 10000, step=500)
+    rate = c[3].slider("Interest rate (%)", 5.0, 24.0, 11.0, step=0.1)
+    prior_default = c[3].selectbox("Prior default on file", ["N", "Y"])
+    hist_len = c[3].slider("Credit history (yrs)", 2, 30, 5)
+    st.markdown("<span class='muted' style='font-weight:700'>COST ASSUMPTIONS</span>",
+                unsafe_allow_html=True)
+    cc = st.columns(4)
+    lgd = cc[0].slider("Loss given default (LGD)", 0.1, 1.0, TH.DEFAULT_LGD, step=0.05)
+    term = cc[1].slider("Loan term (years)", 1.0, 7.0, TH.DEFAULT_TERM, step=0.5)
 
 best = TH.optimal_threshold(scored["actual"], scored["proba"],
                             scored["loan_amnt"], scored["loan_int_rate"], lgd, term)
@@ -212,7 +214,7 @@ with tab_score:
             f"&nbsp;·&nbsp; approve below"
             f"</div></div>", unsafe_allow_html=True)
         st.caption("The threshold is the cost-minimising cutoff for the current LGD/term — "
-                   "adjust them in the sidebar.")
+                   "adjust them in the panel above.")
 
 with tab_why:
     st.markdown("##### Why this score? — SHAP")
