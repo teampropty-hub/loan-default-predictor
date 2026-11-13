@@ -24,7 +24,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROVINCES = ["ON", "QC", "BC", "AB", "MB", "SK", "NS", "NB", "NL", "PE"]
 RED, AMBER, GREEN, INK, MUTED = "#D52B1E", "#B45309", "#15803D", "#0F172A", "#64748B"
 
-st.set_page_config(page_title="Canadian Credit Risk", page_icon="🍁", layout="wide")
+st.set_page_config(page_title="Canadian Credit Risk", page_icon="🍁", layout="wide",
+                   initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
